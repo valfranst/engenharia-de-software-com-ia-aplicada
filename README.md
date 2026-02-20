@@ -1,4 +1,4 @@
-# Engenharia de Software com IA Aplicada
+#Projeto desenvolvido como parte da pós-graduação em Engenharia de Software com IA Aplicada.
 
 Repositório com exemplos, experimentos e estudos práticos sobre aplicação de Inteligência Artificial no contexto de Engenharia de Software.
 
