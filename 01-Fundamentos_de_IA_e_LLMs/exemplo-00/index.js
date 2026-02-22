@@ -228,12 +228,12 @@ const pessoa = {
 // Normalização exemplo (idade_min=22, idade_max=45; salario_min=4100, salario_max=12000)
 const pessoaTensorNormalizado = [
   [
-    0.55, // idade_norm = (28-22)/(45-22)
-    0.80, // salario_norm = (8200-4100)/(12000-4100)
-    0,0,1, // cor verde
+    0.80, // idade_norm = (28-22)/(45-22)
+    0.90, // salario_norm = (8200-4100)/(12000-4100)
+    0,1,0, // cor verde
     0,0,1, // Curitiba
     0,0,0,1, // prof_eng_ia_aplicada
-    1,0,0,0  // esc_pos
+    0,0,1,0  // esc_pos
   ]
 ]
 
