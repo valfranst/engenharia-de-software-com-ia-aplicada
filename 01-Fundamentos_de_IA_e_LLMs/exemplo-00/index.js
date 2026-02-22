@@ -1,6 +1,12 @@
-import tf from '@tensorflow/tfjs-node';
 
+process.env.TF_CPP_MIN_LOG_LEVEL = '2';      // silencia INFO/WARN
+process.env.TF_ENABLE_ONEDNN_OPTS = '0';     // desativa avisos do oneDNN
 
+// use dynamic import to apply env flags before TensorFlow initializes
+const tfModule = await import('@tensorflow/tfjs-node');
+const tf = tfModule.default ?? tfModule;
+
+/*
 async function trainModel(inputXs, outputYs) {
     const model = tf.sequential()
 
@@ -58,9 +64,9 @@ async function trainModel(inputXs, outputYs) {
             epochs: 100,
             shuffle: true,
             callbacks: {
-                // onEpochEnd: (epoch, log) => console.log(
-                //     `Epoch: ${epoch}: loss = ${log.loss}`
-                // )
+                //  onEpochEnd: (epoch, log) => console.log(
+                //      `Epoch: ${epoch}: loss = ${log.loss}`
+                //  )
             }
         }
     )
@@ -139,4 +145,101 @@ const results = predictions
     .sort((a, b) => b.prob - a.prob)
     .map(p => `${labelsNomes[p.index]} (${(p.prob * 100).toFixed(2)}%)`)
     .join('\n')
-console.log(results)
+console.log(results) 
+
+*/
+
+//**************************************************************** */
+
+
+
+async function trainModel(inputXs, outputYs) {
+    const model = tf.sequential()
+    // idade + salario + 3 cores + 3 localizações + 4 profissões + 4 escolaridades = 16
+    model.add(tf.layers.dense({ inputShape: [16], units: 80, activation: 'relu' }))
+    model.add(tf.layers.dense({ units: 3, activation: 'softmax' }))
+    model.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy', metrics: ['accuracy'] })
+    await model.fit(inputXs, outputYs, { verbose: 0, epochs: 100, shuffle: true,callbacks: {} })
+    return model
+}
+
+async function predict(model, pessoa) {
+    // transformar o array js para o tensor (tfjs)
+    const tfInput = tf.tensor2d(pessoa)
+
+    // Faz a predição (output será um vetor de 3 probabilidades)
+    const pred = model.predict(tfInput)
+    const predArray = await pred.array()
+    return predArray[0].map((prob, index) => ({ prob, index }))
+}
+
+// Novo exemplo de pessoas para treino (idade, cor, localização, salário, profissão, escolaridade)
+// const pessoas = [
+//     { nome: "Erick",   idade: 30, cor: "azul",     localizacao: "São Paulo", salario: 6500,  profissao: "programador",     escolaridade: "bacharelado" },
+//     { nome: "Ana",     idade: 25, cor: "vermelho", localizacao: "Rio",       salario: 9500,  profissao: "analista",        escolaridade: "medio" },
+//     { nome: "Carlos",  idade: 40, cor: "verde",    localizacao: "Curitiba",  salario: 11000, profissao: "eng_software",    escolaridade: "pos" },
+//     { nome: "Beatriz", idade: 28, cor: "azul",     localizacao: "São Paulo", salario: 12000, profissao: "eng_ia_aplicada", escolaridade: "mestre" },
+//     { nome: "Diego",   idade: 35, cor: "vermelho", localizacao: "Rio",       salario: 7500,  profissao: "programador",     escolaridade: "bacharelado" },
+//     { nome: "Fernanda",idade: 32, cor: "verde",    localizacao: "Curitiba",  salario: 10200,  profissao: "analista",        escolaridade: "medio" },
+//     { nome: "Gustavo", idade: 45, cor: "azul",     localizacao: "Rio",       salario: 9300,  profissao: "eng_software",    escolaridade: "pos" },
+//     { nome: "Helena",  idade: 22, cor: "vermelho", localizacao: "São Paulo", salario: 4100,  profissao: "programador",     escolaridade: "medio" },
+// ]
+
+const tensorPessoasNormalizado = [
+  [0.33, 0.40, 1,0,0, 1,0,0, 1,0,0,0, 0,1,0,0], // Erick
+  [0.00, 0.20, 0,1,0, 0,1,0, 0,1,0,0, 1,0,0,0], // Ana
+  [1.00, 0.80, 0,0,1, 0,0,1, 0,0,1,0, 0,0,1,0], // Carlos
+  [0.20, 1.00, 1,0,0, 1,0,0, 0,0,0,1, 0,0,0,1], // Beatriz
+  [0.67, 0.50, 0,1,0, 0,1,0, 1,0,0,0, 0,1,0,0], // Diego
+  [0.47, 0.68, 0,0,1, 0,0,1, 0,1,0,0, 1,0,0,0], // Fernanda
+  [1.20, 0.38, 1,0,0, 0,1,0, 0,0,1,0, 0,0,1,0], // Gustavo
+  [-0.20, 0.00, 0,1,0, 1,0,0, 1,0,0,0, 1,0,0,0], // Helena
+]
+
+const labelsNomes = ["premium", "medium", "basic"];
+const tensorLabels = [
+  [1, 0, 0], // Erick    -> premium
+  [0, 1, 0], // Ana      -> medium
+  [0, 0, 1], // Carlos   -> basic
+  [1, 0, 0], // Beatriz  -> premium
+  [0, 1, 0], // Diego    -> medium
+  [0, 1, 0], // Fernanda -> medium
+  [0, 0, 1], // Gustavo  -> basic
+  [0, 1, 0], // Helena   -> medium
+]
+
+
+const inputXs = tf.tensor2d(tensorPessoasNormalizado)
+const outputYs = tf.tensor2d(tensorLabels)
+
+const model = await trainModel(inputXs, outputYs)
+
+
+const pessoa = {
+  nome: 'zé',
+  idade: 28,
+  cor: 'verde',
+  localizacao: 'Curitiba',
+  salario: 8200,
+  profissao: 'eng_ia_aplicada',
+  escolaridade: 'pos'
+}
+
+// Normalização exemplo (idade_min=22, idade_max=45; salario_min=4100, salario_max=12000)
+const pessoaTensorNormalizado = [
+  [
+    0.55, // idade_norm = (28-22)/(45-22)
+    0.80, // salario_norm = (8200-4100)/(12000-4100)
+    0,0,1, // cor verde
+    0,0,1, // Curitiba
+    0,0,0,1, // prof_eng_ia_aplicada
+    1,0,0,0  // esc_pos
+  ]
+]
+
+const predictions = await predict(model, pessoaTensorNormalizado)
+const results = predictions
+    .sort((a, b) => b.prob - a.prob)
+    .map(p => `${labelsNomes[p.index]} (${(p.prob * 100).toFixed(2)}%)`)
+    .join('\n')
+console.log(results) 
